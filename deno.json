@@ -1,7 +1,7 @@
 {
     "name": "@zerm/zlog",
-    "version": "1.0.0",
-    "license": "Unlicense",
+    "version": "1.0.1",
+    "license": "0BSD",
     "exports": "./src/root.ts",
 
     "lint": {

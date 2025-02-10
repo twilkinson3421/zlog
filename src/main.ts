@@ -15,6 +15,14 @@ export enum Level {
     none = 4,
 }
 
+const levelStrings: Record<Level, string> = <const>{
+    [Level.debug]: "debug",
+    [Level.info]: "info",
+    [Level.warn]: "warn",
+    [Level.err]: "error",
+    [Level.none]: "log",
+};
+
 /**
  * A controller from which scopes can be created and controlled.
  * This should be given to a library which supports zlog.
@@ -107,7 +115,7 @@ export class Scope {
 
     private logFn(message: string, level: Level): void {
         if (this.level > level) return;
-        const output = `${Level[level]}(${this.name}): ${message}\n`;
+        const output = `${levelStrings[level]}(${this.name}): ${message}\n`;
         const fd = level === Level.info ? Deno.stdout : Deno.stderr;
         fd.writeSync(new TextEncoder().encode(output));
     }
