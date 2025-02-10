@@ -1,6 +1,6 @@
 {
     "name": "@zerm/zlog",
-    "version": "1.0.1",
+    "version": "2.0.0",
     "license": "0BSD",
     "exports": "./src/root.ts",
 

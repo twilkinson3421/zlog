@@ -6,21 +6,23 @@
  * ```ts
  * import * as zlog from "@zerm/zlog";
  *
- * const controller = new zlog.Controller(); // default level is `debug`
+ * const master = new zlog.Master();
+ * master.set(Symbol.for("myLibrary"), zlog.Level.warn);
  *
- * controller.set(Symbol.for("someLibrary"), zlog.Level.warn); // set the level for a library
- * controller.lock(Symbol.for("someLibrary")); // lock the level for a library
+ * myLibrary.init(master);
  *
- * someLibrary.init(controller); // give the controller to a library which supports zlog
+ * // ...inside myLibrary
  *
- * // ...someLibrary
+ * let log: zlog.Scope;
  *
- * export function init(controller: zlog.Controller) {
- *     // this can be stored somewhere for later use
- *     const log = controller.scope(Symbol.for("someLibrary"));
+ * export function init(master: zlog.Master = new zlog.Master()): void {
+ *     log = master.scope(Symbol.for("myLibrary"));
  *
+ *     // These will be hidden
  *     log.debug("This is a debug message");
  *     log.info("This is an info message");
+ *
+ *     // These will be shown
  *     log.warn("This is a warning message");
  *     log.err("This is an error message");
  * }

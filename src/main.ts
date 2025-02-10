@@ -6,137 +6,104 @@ export enum Level {
     info = 1,
     /**
      * It is unceratin if something has gone wrong or not,
-     * but the circumstances would be worth investigation.
+     * but the circumstances would be worth investigation
      */
     warn = 2,
-    /** A bug has been detected or something has gone wrong but is is recoverable */
+    /** A bug has been detected or something has gone wrong but it is recoverable */
     err = 3,
     /** Prevents any further logging */
     none = 4,
 }
 
-const levelStrings: Record<Level, string> = <const>{
+const levelStr: Record<Level, string> = <const>{
     [Level.debug]: "debug",
     [Level.info]: "info",
     [Level.warn]: "warn",
     [Level.err]: "error",
-    [Level.none]: "log",
+    [Level.none]: "nolog",
 };
 
 /**
  * A controller from which scopes can be created and controlled.
- * This should be given to a library which supports zlog.
+ * This can be given to a library which supports zlog.
  */
-export class Controller {
-    #scopes: Map<symbol, Scope> = new Map();
-
+export class Master {
+    /** Scopes tracked by this master  */
+    scopes: Map<symbol, Scope> = new Map();
     constructor(
-        /** The default log level for scopes which have not been configured */
+        /** The default level for scopes created by this master */
         public defaultLevel: Level = Level.info
     ) {}
 
     /**
-     * Creates a new scope with the given symbol and level.
-     * If the scope already exists, it will be returned.
+     * Creates a new scope with the given name and level.
+     * If the scope already exists, it is returned.
      *
-     * @param symbol The symbol with which to identify the scope
+     * @param sym The symbol to create the scope for
      * @param level The log level for the scope
-     * @returns A {@link Scope}
      */
-    scope(symbol: symbol, level: Level = this.defaultLevel): Scope {
-        if (this.#scopes.has(symbol)) return this.#scopes.get(symbol)!;
-        const scope = new Scope(symbol, level, this.#scopes.size.toString());
-        this.#scopes.set(symbol, scope);
+    scope(sym: symbol, level: Level = this.defaultLevel): Scope {
+        if (this.scopes.has(sym)) return this.scopes.get(sym)!;
+        const scope = new Scope(this, sym, level);
+        this.scopes.set(sym, scope);
         return scope;
     }
 
     /**
-     * Sets the log level for the given symbol.
-     * If the scope does not exist, it will be created with the given level.
-     * If the scope has been locked, nothing will happen.
+     * Set the log level for the given symbol.
+     * If the scope does not exist, it is created.
      *
-     * @param symbol The symbol with which to identify the scope
-     * @param level The log level for the scope
-     * @returns The referenced {@link Scope}
+     * @param sym The symbol to set the level for
+     * @param level The log level to set
      */
-    set(symbol: symbol, level: Level): Scope {
-        const scope = this.#scopes.get(symbol) ?? this.scope(symbol, level);
+    set(sym: symbol, level: Level = this.defaultLevel): Scope {
+        const scope = this.scopes.get(sym) ?? this.scope(sym, level);
         scope.level = level;
         return scope;
     }
-
-    /**
-     * Locks the log level for the scope with the given symbol.
-     * If the scope does not exist, it will be created with the default level and locked.
-     *
-     * This action cannot be undone.
-     *
-     * @param symbol The symbol with which to identify the scope
-     */
-    lock(symbol: symbol): void {
-        this.set(symbol, (this.#scopes.get(symbol) ?? { level: this.defaultLevel }).level).locked =
-            true;
-    }
 }
 
+/** A scope for logging */
 export class Scope {
-    /** The plaintext name for the scope */
+    /** The name of the scope used for logging */
     readonly name: string;
-    #locked = false;
-
-    /** Whether the scope is locked */
-    get locked(): boolean {
-        return this.#locked;
+    constructor(
+        /** The master that created this scope */
+        readonly master: Master,
+        /** The symbol that this scope is for */
+        readonly sym: symbol,
+        /** The log level for this scope */
+        public level: Level
+    ) {
+        this.name = this.sym.description ?? "unknown";
     }
 
-    /** Whether the scope is locked. Cannot be unlocked after being locked. */
-    set locked(value: boolean) {
-        if (this.locked) return;
-        this.#locked = value;
+    #fmt(message: string): string {
+        return `${levelStr[this.level]}(${this.name}): ${message}\n`;
     }
 
-    #level: Level;
-
-    /** The log level for the scope */
-    get level(): Level {
-        return this.#level;
-    }
-
-    /** The log level for the scope. Cannot be changed if the scope is locked. */
-    set level(value: Level) {
-        if (this.locked) return;
-        this.#level = value;
-    }
-
-    constructor(public symbol: symbol, level: Level, fallback: string) {
-        this.name = symbol.description ?? fallback;
-        this.#level = level;
-    }
-
-    private logFn(message: string, level: Level): void {
+    #log(message: string, level: Level): void {
         if (this.level > level) return;
-        const output = `${levelStrings[level]}(${this.name}): ${message}\n`;
-        const fd = level === Level.info ? Deno.stdout : Deno.stderr;
-        fd.writeSync(new TextEncoder().encode(output));
+        Deno.stdout.writeSync(new TextEncoder().encode(this.#fmt(message)));
     }
 
-    /** Logs a 'debug' message to `stderr` */
+    /** Log a message at the debug level to the standard error */
     debug(message: string): void {
-        this.logFn(message, Level.debug);
+        this.#log(message, Level.debug);
     }
 
-    /** Logs an 'info' message to `stdout` */
+    /** Log a message at the info level to the standard error */
     info(message: string): void {
-        this.logFn(message, Level.info);
+        this.#log(message, Level.info);
     }
 
-    /** Logs a 'warning' message to `stderr` */
+    /** Log a message at the warn level to the standard error */
     warn(message: string): void {
-        this.logFn(message, Level.warn);
+        this.#log(message, Level.warn);
     }
 
-    /** Logs an 'error' message to `stderr` */
+    /** Log a message at the error level to the standard error */
     err(message: string): void {
-        this.logFn(message, Level.err);
+        this.#log(message, Level.err);
     }
 }
